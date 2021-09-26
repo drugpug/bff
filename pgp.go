@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -173,19 +173,22 @@ func decodeSignatureFromFile(filename string) *packet.Signature {
 	return sig
 }
 
-func signFile(publicKeyPath, privateKeyPath string) {
+func signString(input string, publicKeyPath, privateKeyPath string) string {
 	pubKey := decodePublicKey(publicKeyPath)
 	privKey := decodePrivateKey(privateKeyPath)
 
-	signer := createEntityFromKeys(pubKey, privKey)
+	signer := createEntityFromKeys(2048, pubKey, privKey)
 
-	err := openpgp.ArmoredDetachSign(os.Stdout, signer, os.Stdin, nil)
+	var buf bytes.Buffer
+
+	err := openpgp.ArmoredDetachSign(&buf, signer, strings.NewReader(input), nil)
 	if err != nil {
 		log.Err(err).Msg("cannot sign file")
 	}
+	return buf.String()
 }
 
-func verifySignature(content, signatureString, publicKeyFilePath string) {
+func verifySignature(content, signatureString, publicKeyFilePath string) error{
 	pubKey := decodePublicKey(publicKeyFilePath)
 	sig := decodeSignature(signatureString)
 
@@ -193,10 +196,7 @@ func verifySignature(content, signatureString, publicKeyFilePath string) {
 	r := strings.NewReader(content)
 	io.Copy(hash, r)
 
-	err := pubKey.VerifySignature(hash, sig)
-	if err != nil {
-		log.Err(err).Msg("cannot verify signature")
-	}
+	return pubKey.VerifySignature(hash, sig)
 }
 
 func createEntityFromKeys(keyBits int, pubKey *packet.PublicKey, privKey *packet.PrivateKey) *openpgp.Entity {
@@ -258,15 +258,20 @@ func createEntityFromKeys(keyBits int, pubKey *packet.PublicKey, privKey *packet
 }
 
 func generateKeys() {
-	key, err := rsa.GenerateKey(rand.Reader, *bits)
-	printIfError(err, "Error generating RSA key: %s", err)
-
-	priv, err := os.Create(filepath.Join(*keyOutputDir, *keyOutputPrefix+".privkey"))
-	printIfError(err, "Error writing private key to file: %s", err)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+	priv, err := os.Create("./private.pem")
+	if err != nil {
+		panic(err)
+	}
 	defer priv.Close()
 
-	pub, err := os.Create(filepath.Join(*keyOutputDir, *keyOutputPrefix+".pubkey"))
-	printIfError(err, "Error writing public key to file: %s", err)
+	pub, err := os.Create("./public.pem")
+	if err != nil {
+		panic(err)
+	}
 	defer pub.Close()
 
 	encodePrivateKey(priv, key)

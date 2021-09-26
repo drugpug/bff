@@ -8,5 +8,6 @@ require (
 	github.com/olivere/elastic v6.2.37+incompatible
 	github.com/olivere/elastic/v7 v7.0.29 // indirect
 	github.com/rs/zerolog v1.25.0
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 )
